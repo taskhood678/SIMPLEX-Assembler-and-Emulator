@@ -158,7 +158,163 @@ bool first_pass(string& filename, ostream& log){
     return !error;
 }
 
+bool second_pass(string& filename, string& object_name, string& lstname, ostream& log){
+    map<string, bool> used_label;
+
+    ifstream infile(filename);
+    ofstream objfile(object_name, ios::binary);
+    ofstream lstfile(lstname);
+
+    if(!infile.is_open()) {log<<"Error: Could Not Open Input File\n"; return false;}
+    if(!objfile.is_open()) {log<<"Error: Could Not Open Binary Object File\n"; return false;}
+    if(!lstfile.is_open()) {log<<"Error: Could Not Open Listing File\n"; return false;}
+
+    string line;
+    int pc=0, line_num=0;
+    bool error=false;
+
+    while(getline(infile, line)){
+        line_num++;
+        string orig=line;
+
+        line=clean(line);
+        if(line.empty()) continue;
+
+        size_t colon=line.find(':');
+        if(colon!=string::npos){
+            line=line.substr(colon+1);
+        }
+
+        stringstream ss(line);
+        string word;
+
+        if(!(ss>>word)){
+            //If a label doesn't have any instruction after it, then save line directly in listing file
+            lstfile << hex << uppercase << setfill('0') << setw(8) << pc << "        " << orig << "\n";
+            continue;
+        }
+
+        if(word=="SET"){
+            lstfile<<"                 "<<orig<<"\n";
+            continue;
+        }
+
+        if(inst_table.count(word)){
+            instruction inst = inst_table.at(word);
+            int operand=0;
+
+            if(inst.use_operand){
+                string operandstr;
+                if(ss>>operandstr){
+                    //an operand found
+                    if(isalpha(operandstr[0])){
+                        //operand is a label
+                        if(symbol_table.count(operandstr)){
+                            operand=symbol_table[operandstr];
+                            used_label[operandstr]=true;
+                        } else {
+                            log<<"Error at line "<<line_num<<": Undefined label "<<operandstr<<"\n";
+                            error=true;
+                        }
+
+                        if(inst.opcode==13 || (inst.opcode>=15 && inst.opcode<=17)){
+                            operand=operand-(pc+1);
+                        }
+                    } else {
+                        //operand is a number
+                        char* endptr;
+                        operand=strtol(operandstr.c_str(), &endptr, 0);
+
+                        if(*endptr!='\0'){
+                            log<<"Error at line "<<line_num<<": Invalid Numeric Operand '"<<operandstr<<"'\n";
+                            error=true;
+                        }
+                    }
+                } else {
+                    log<<"Error at line "<<line_num<<": Missing Operand Value\n";
+                    error=true;
+                }
+            }
+
+            string extra;
+            if(ss>>extra){
+                log<<"Error at line "<<line_num<<": Unexpected extra operand '"<<extra<<"'\n";
+                error=true;
+            }
+
+            //generate machine code
+            unsigned int code=0;
+
+            if(inst.opcode==-1) code=operand;
+            else{
+                //bitwise AND operation used to avoid conflict between negative operand and opcode
+                code = ((operand&0xFFFFFF)<<8) | (inst.opcode&0xFF);
+            }
+            
+            //Entering machine code in listing and object files
+            lstfile << hex << uppercase << setfill('0') << setw(8) << pc << " " << setw(8) << code << " " << orig << "\n";
+            objfile.write(reinterpret_cast<const char*>(&code), sizeof(code));
+            pc++;
+        } else {
+            log<<"Error at line "<<line_num<<": Unknown Instruction '"<<word<<"'\n";
+            error=true;
+        }
+    }
+
+    for(auto it: symbol_table){
+        if(!used_label[it.first]){
+            log<<"Warning. Unused Label '"<<it.first<<"' Declared\n";
+        }
+    }
+
+    infile.close();
+    objfile.close();
+    lstfile.close();
+    return !error;
+}
+
+
 int main(){
-    //placeholder main for testing pass 1
-    return 0;
+    string inputfile;
+    cout<<"Enter the name of the assembly file to process (include .asm at the end): ";
+    cin>>inputfile;
+
+    size_t dot = inputfile.find_last_of('.');
+    while(dot == string::npos){
+        cout<<"Incorrect file name format. Please try again\n";
+        cout<<"Enter the name of the assembly file to process (include .asm at the end): ";
+        cin>>inputfile;
+        
+        dot = inputfile.find_last_of('.');
+    }
+
+    string basename = inputfile.substr(0, dot);
+
+    string objfile = basename+".obj";
+    string lstfile = basename+".lst";
+    string logname = basename+".log";
+
+    ofstream logfile(logname);
+
+    cout<<"\n"<<"Assembling "<<inputfile<<"...\n\n";
+
+    cout<<"Executing First Pass...\n";
+    bool pass1 = first_pass(inputfile, logfile);
+
+    cout<<"\n";
+    cout<<"Executing Second Pass...\n";
+    bool pass2 = second_pass(inputfile, objfile, lstfile, logfile);
+
+    cout<<"\n";
+    if(!pass1 || !pass2){
+        cerr<<"Assembler aborted due to errors in the source code\n\n";
+        logfile<<"Assembler aborted due to errors in the source code\n\n";
+        remove(objfile.c_str());
+        remove(lstfile.c_str());
+        return 1;
+    }
+
+    cout<<"Assembly Successfull!\n";
+    cout<<"Object File Generated: "<<objfile<<"\n";
+    cout<<"Listing File Generated: "<<lstfile<<"\n";
 }
