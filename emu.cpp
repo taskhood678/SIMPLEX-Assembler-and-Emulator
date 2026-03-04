@@ -47,6 +47,17 @@ void memory_dump(ostream &out){
     out<<"------------------------\n\n";
 }
 
+bool valid_addr(int addr, ostream &out){
+    if(addr<0 || addr>=mem_size){
+        cerr<<"\nExecution Error: Segmentation Fault. Invalid Memory Access At Address "<<addr<<" (PC: "<<PC-1<<").\n";
+        out<<"\nExecution Error: Segmentation Fault. Invalid Memory Access At Address "<<addr<<" (PC: "<<PC-1<<").\n";
+
+        return false;
+    }
+
+    return true;
+}
+
 void execute(ostream &out){
     int ct=0;
 
@@ -77,20 +88,24 @@ void execute(ostream &out){
                 break;
             case 2:
                 //ldl
+                if(!valid_addr(SP+operand, out)) return;
                 B = A;
                 A = memory[SP + operand];
                 break;
             case 3:
                 //stl
+                if(!valid_addr(SP+operand, out)) return;
                 memory[SP + operand] = A;
                 A = B;
                 break;
             case 4:
                 //ldnl
+                if(!valid_addr(A+operand, out)) return;
                 A = memory[A + operand];
                 break;
             case 5:
                 //stnl
+                if(!valid_addr(A+operand, out)) return;
                 memory[A + operand] = B;
                 break;
             case 6:
@@ -103,10 +118,22 @@ void execute(ostream &out){
                 break;
             case 8:
                 //shl
+                if (A<0 || A>31) {
+                    cerr<<"\nExecution Error: Invalid left shift amount ("<<A<<") at PC "<<(PC - 1)<<".\n";
+                    out<<"\nExecution Error: Invalid left shift amount ("<<A<<") at PC "<<(PC - 1)<<".\n";
+
+                    return; 
+                }
                 A = B << A;
                 break;
             case 9:
                 //shr
+                if (A<0 || A>31) {
+                    cerr<<"\nExecution Error: Invalid right shift amount ("<<A<<") at PC "<<(PC - 1)<<".\n";
+                    out<<"\nExecution Error: Invalid right shift amount ("<<A<<") at PC "<<(PC - 1)<<".\n";
+
+                    return; 
+                }
                 A = B >> A;
                 break;
             case 10:
@@ -217,3 +244,4 @@ int main(){
     logfile<<"SP: "<<SP<<"\n";
     return 0;
 }
+
