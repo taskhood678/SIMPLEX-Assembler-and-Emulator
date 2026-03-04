@@ -1,0 +1,18 @@
+Claims for SIMPLEX Assembler and Emulator
+Author: Raghuram Sathapathy (2401CS53)
+
+My Assembler and Emulator successfully implement all baseline requirements, plus robust error handling:
+
+ASSEMBLER CLAIMS:
+1. Implements a Two-Pass architecture to resolve forward references.
+2. Generates correct 32-bit machine code (.obj) and formatted listing files (.lst).
+3. Warns for SET instructions used without labels.
+4. Error Detection: Spots duplicate labels, bogus label names, missing operands, unexpected extra operands on a line, and unknown instructions.
+5. Safely processes negative operands using 0xFFFFFF bitwise masking.
+
+EMULATOR CLAIMS:
+1. Simulates 64KB of virtual memory and all 4 SIMPLEX registers.
+2. Detects errant programs (PC out of bounds).
+3. Memory Protection: Detects segmentation faults if the assembly program attempts to read/write negative memory addresses or addresses beyond 64KB.
+4. Shift Clamping: Prevents undefined behavior in C++ by ensuring shl/shr amounts are within 0-31.
+5. Produces formatted memory dumps and logs final register states to a .log file.

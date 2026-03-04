@@ -1,0 +1,10 @@
+all: asm emu
+
+asm: asm.cpp
+	g++ -std=c++11 asm.cpp -o asm
+
+emu: emu.cpp
+	g++ -std=c++11 emu.cpp -o emu
+
+clean:
+	rm -f asm emu *.obj *.lst *.log
